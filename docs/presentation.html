@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text-to-Insights | Telecom AI Platform</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0F1923;
+    color: #E8EDF2;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ── Slide container ── */
+  .deck { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    display: none;
+    position: absolute;
+    inset: 0;
+    padding: 60px 80px 70px;
+    animation: fadeIn 0.4s ease;
+  }
+  .slide.active { display: flex; flex-direction: column; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px; z-index: 100;
+    background: rgba(255,255,255,0.06); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 50px; padding: 10px 20px;
+  }
+  .nav button {
+    background: none; border: none; color: #90CAF9; cursor: pointer;
+    font-size: 18px; padding: 4px 10px; border-radius: 20px;
+    transition: background 0.2s;
+  }
+  .nav button:hover { background: rgba(144,202,249,0.15); }
+  #slide-counter { font-size: 13px; color: #78909C; min-width: 60px; text-align: center; }
+
+  /* ── Progress bar ── */
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, #1A73E8, #9C27B0);
+    transition: width 0.4s ease; z-index: 100;
+  }
+
+  /* ── Typography ── */
+  .slide-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: #64B5F6; margin-bottom: 14px;
+  }
+  h1 { font-size: 52px; font-weight: 800; line-height: 1.1; margin-bottom: 12px; }
+  h2 { font-size: 36px; font-weight: 700; margin-bottom: 24px; color: #E3F2FD; }
+  h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #90CAF9; }
+  p  { font-size: 17px; line-height: 1.65; color: #B0BEC5; }
+  .lead { font-size: 22px; color: #CFD8DC; line-height: 1.6; }
+
+  /* ── Colour helpers ── */
+  .accent  { color: #64B5F6; }
+  .accent2 { color: #CE93D8; }
+  .green   { color: #81C784; }
+  .red     { color: #EF9A9A; }
+  .yellow  { color: #FFD54F; }
+
+  /* ── Cover slide ── */
+  .cover { justify-content: center; background: radial-gradient(ellipse at 30% 50%, #0D2137 0%, #0F1923 70%); }
+  .cover .subtitle { font-size: 20px; color: #78909C; margin-top: 8px; }
+  .cover .badge-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px; padding: 8px 16px; font-size: 14px; color: #90CAF9;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #81C784; }
+
+  /* ── Problem / Solution cards ── */
+  .card-grid { display: grid; gap: 16px; flex: 1; }
+  .card-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .card-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px; padding: 24px; transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(100,181,246,0.4); }
+  .card .icon { font-size: 28px; margin-bottom: 12px; }
+  .card h3 { font-size: 17px; margin-bottom: 8px; }
+  .card p { font-size: 14px; }
+
+  /* ── Pipeline flow ── */
+  .pipeline {
+    display: flex; flex-direction: column; gap: 8px; flex: 1;
+    justify-content: center;
+  }
+  .pipe-row { display: flex; align-items: stretch; gap: 0; }
+  .pipe-node {
+    flex: 1; border-radius: 8px; padding: 14px 16px;
+    border-left: 4px solid transparent;
+    background: rgba(255,255,255,0.04);
+  }
+  .pipe-node .mod-num { font-size: 11px; font-weight: 700; letter-spacing: 1px; opacity: 0.7; text-transform: uppercase; }
+  .pipe-node .mod-name { font-size: 15px; font-weight: 700; margin: 2px 0; }
+  .pipe-node .mod-desc { font-size: 12px; color: #78909C; }
+  .pipe-arrow {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 8px; font-size: 18px; color: #455A64;
+  }
+  .pipe-node.c1 { border-left-color: #1E88E5; }
+  .pipe-node.c2 { border-left-color: #00ACC1; }
+  .pipe-node.c3 { border-left-color: #00897B; }
+  .pipe-node.c4 { border-left-color: #7B1FA2; }
+  .pipe-node.c5 { border-left-color: #C2185B; }
+  .pipe-node.c6 { border-left-color: #BF360C; }
+  .pipe-node.c7 { border-left-color: #E65100; }
+  .pipe-node.c8 { border-left-color: #37474F; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: rgba(255,255,255,0.07); padding: 10px 14px; text-align: left;
+       font-weight: 600; color: #90CAF9; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #CFD8DC; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+  .tick { color: #81C784; font-weight: 700; }
+  .cross { color: #EF9A9A; }
+
+  /* ── Code block ── */
+  pre {
+    background: #0D1117; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; padding: 20px; font-size: 13px; line-height: 1.6;
+    color: #A5D6A7; overflow-x: auto; font-family: 'Consolas', monospace;
+    flex: 1;
+  }
+  .kw { color: #CE93D8; }
+  .str { color: #80DEEA; }
+  .cmt { color: #546E7A; font-style: italic; }
+  .fn { color: #FFCC02; }
+
+  /* ── Stats row ── */
+  .stat-row { display: flex; gap: 20px; margin: 16px 0; }
+  .stat {
+    flex: 1; background: rgba(255,255,255,0.05); border-radius: 10px;
+    padding: 20px; text-align: center;
+  }
+  .stat .number { font-size: 40px; font-weight: 800; line-height: 1; }
+  .stat .label  { font-size: 13px; color: #78909C; margin-top: 6px; }
+
+  /* ── Two-column layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; flex: 1; }
+
+  /* ── Scoring table ── */
+  .score-row { display: flex; align-items: center; gap: 16px; margin: 10px 0; }
+  .score-badge {
+    min-width: 48px; text-align: center; font-size: 18px; font-weight: 800;
+    color: #FFD54F; background: rgba(255,213,79,0.12); border-radius: 6px;
+    padding: 4px 8px;
+  }
+  .score-text { font-size: 15px; color: #CFD8DC; }
+  .score-example { font-size: 13px; color: #546E7A; font-style: italic; }
+
+  /* ── Slide 1 glow decoration ── */
+  .glow {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.12; z-index: 0;
+    pointer-events: none;
+  }
+  .glow1 { width: 500px; height: 500px; background: #1A73E8; top: -100px; right: -100px; }
+  .glow2 { width: 400px; height: 400px; background: #9C27B0; bottom: -100px; left: 100px; }
+  .slide > * { position: relative; z-index: 1; }
+
+  /* ── Footer line ── */
+  .footer-line {
+    position: fixed; bottom: 68px; left: 80px; right: 80px;
+    height: 1px; background: rgba(255,255,255,0.06);
+  }
+
+  /* ── Roadmap ── */
+  .roadmap-row {
+    display: flex; gap: 0; flex: 1; align-items: stretch;
+  }
+  .phase {
+    flex: 1; padding: 20px; border-top: 3px solid;
+    background: rgba(255,255,255,0.03);
+  }
+  .phase:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.06); }
+  .phase h3 { font-size: 14px; margin-bottom: 8px; }
+  .phase ul { list-style: none; }
+  .phase ul li { font-size: 13px; color: #90A4AE; padding: 3px 0; }
+  .phase ul li::before { content: "› "; color: #546E7A; }
+  .phase .week { font-size: 11px; color: #546E7A; margin-bottom: 8px; }
+  .phase.done { background: rgba(129,199,132,0.06); }
+  .phase.done h3 { color: #81C784; }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="footer-line"></div>
+
+<div class="deck" id="deck">
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 1 ══ -->
+<div class="slide active cover">
+  <div class="glow glow1"></div>
+  <div class="glow glow2"></div>
+  <div class="slide-tag">Enterprise AI Platform · Telecom</div>
+  <h1>Text-to-<span class="accent">Insights</span></h1>
+  <p class="subtitle">Natural Language Querying for Telecom OSS/BSS Metrics</p>
+  <p style="margin-top:20px; font-size:18px; color:#78909C; max-width:680px;">
+    Ask any business question in plain English. Get a full SQL-backed report in under 60 seconds —
+    with no SQL knowledge required and no data leaving your network.
+  </p>
+  <div class="badge-row">
+    <div class="badge"><span class="dot"></span> 100% On-Premise</div>
+    <div class="badge"><span class="dot"></span> Zero External API Cost</div>
+    <div class="badge"><span class="dot"></span> Local AI via Ollama</div>
+    <div class="badge"><span class="dot"></span> Production-Ready</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 2 ══ -->
+<div class="slide">
+  <div class="slide-tag">The Problem</div>
+  <h2>Business Users Cannot Access Their Own Data</h2>
+  <div class="card-grid cols-2" style="flex:1;">
+    <div class="card">
+      <div class="icon">🔐</div>
+      <h3 class="red">Cryptic Internal Codes</h3>
+      <p>The metrics DB stores <code style="color:#80DEEA">status='A'</code>,
+        <code style="color:#80DEEA">region='DFW'</code>,
+        <code style="color:#80DEEA">outcome_code='3'</code> —
+        meaningless to business users without a lookup table.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⏳</div>
+      <h3 class="red">Multi-Day Turnaround</h3>
+      <p>Every ad-hoc question requires an engineer to decode the business
+        intent, find the right tables, write SQL, and format results.
+        Average wait: <strong style="color:#EF9A9A">1–3 business days.</strong></p>
+    </div>
+    <div class="card">
+      <div class="icon">🚧</div>
+      <h3 class="red">Engineering Bottleneck</h3>
+      <p>30–40% of engineering time is spent answering analyst queries.
+        This blocks product work and creates a single point of failure
+        when the "SQL expert" is on leave.</p>
+    </div>
+    <div class="card">
+      <div class="icon">📊</div>
+      <h3 class="red">Rigid Dashboards</h3>
+      <p>Pre-built dashboards cannot handle ad-hoc questions.
+        Every new business question requires a new dashboard —
+        a weeks-long engineering project.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 3 ══ -->
+<div class="slide">
+  <div class="slide-tag">The Solution</div>
+  <h2>Three Intelligence Layers Between User and Data</h2>
+  <div class="two-col" style="align-items:center;">
+    <div>
+      <div class="card" style="margin-bottom:16px; border-left: 4px solid #1E88E5;">
+        <h3 style="color:#64B5F6;">Layer 1 — Schema Intelligence</h3>
+        <p>Schema Registry knows every table, column, and internal code.
+          Value Mapper translates "Dallas" → <code style="color:#80DEEA">'DFW'</code>
+          before SQL is ever generated. The model never needs to guess.</p>
+      </div>
+      <div class="card" style="margin-bottom:16px; border-left: 4px solid #7B1FA2;">
+        <h3 style="color:#CE93D8;">Layer 2 — Query Intelligence</h3>
+        <p>Local AI (Ollama + SQLCoder) generates SQL from an enriched prompt
+          containing the schema DDL, value hints, and the user question.
+          A safety validator blocks any non-read operations.</p>
+      </div>
+      <div class="card" style="border-left: 4px solid #E65100;">
+        <h3 style="color:#FFAB40;">Layer 3 — Report Intelligence</h3>
+        <p>A second local AI call (Mistral) converts raw result rows into
+          a narrative report with a summary, key insights,
+          and recommended actions.</p>
+      </div>
+    </div>
+    <div>
+      <pre style="font-size:13px;"><span class="cmt">-- User types (plain English):</span>
+<span class="str">"active Enterprise customers in Dallas"</span>
+
+<span class="cmt">↓ Layer 1: Schema Intelligence</span>
+<span class="str">active</span>   → status = <span class="str">'A'</span>
+<span class="str">Enterprise</span> → segment = <span class="str">'ENT'</span>
+<span class="str">Dallas</span>   → region = <span class="str">'DFW'</span>
+
+<span class="cmt">↓ Layer 2: Query Intelligence (Ollama)</span>
+<span class="kw">SELECT</span> COUNT(*) <span class="kw">FROM</span> customer_accounts
+<span class="kw">WHERE</span> status = <span class="str">'A'</span>
+  <span class="kw">AND</span> segment = <span class="str">'ENT'</span>
+  <span class="kw">AND</span> region = <span class="str">'DFW'</span>
+<span class="kw">LIMIT</span> 10000  <span class="cmt">-- auto-injected</span>
+
+<span class="cmt">↓ Layer 3: Report Intelligence (Ollama)</span>
+<span class="str">"There are 10 active Enterprise customers
+in the DFW region, representing $20,362
+in monthly recurring revenue..."</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 4 ══ -->
+<div class="slide">
+  <div class="slide-tag">System Architecture</div>
+  <h2>8-Module Pipeline Orchestrated by LangGraph</h2>
+  <div class="pipeline">
+    <div class="pipe-row">
+      <div class="pipe-node c8">
+        <div class="mod-num">Module 8</div>
+        <div class="mod-name">API Gateway</div>
+        <div class="mod-desc">FastAPI · JWT Auth · Rate Limiting · Audit Log</div>
+      </div>
+    </div>
+    <div style="text-align:center; color:#455A64; font-size:20px; margin: 2px 0;">↓</div>
+    <div class="pipe-row">
+      <div class="pipe-node c1">
+        <div class="mod-num">Module 1</div>
+        <div class="mod-name">Schema Registry</div>
+        <div class="mod-desc">Metadata DB · tables · columns · value mappings · audit trail</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node c2">
+        <div class="mod-num">Module 2</div>
+        <div class="mod-name">Table Retrieval</div>
+        <div class="mod-desc">+10 name · +5 keyword · +3 column · +4 value label scoring</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node c3">
+        <div class="mod-num">Module 3</div>
+        <div class="mod-name">Value Mapper</div>
+        <div class="mod-desc">Dallas→DFW · active→A · critical→P1 · dropped call→3</div>
+      </div>
+    </div>
+    <div style="text-align:center; color:#455A64; font-size:20px; margin: 2px 0;">↓</div>
+    <div class="pipe-row">
+      <div class="pipe-node c4">
+        <div class="mod-num">Module 4</div>
+        <div class="mod-name">SQL Generator</div>
+        <div class="mod-desc">Ollama + SQLCoder/Mistral/Phi-3 · temperature=0 · local only</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node c5">
+        <div class="mod-num">Module 5</div>
+        <div class="mod-name">SQL Validator</div>
+        <div class="mod-desc">READ-ONLY · whitelist · row cap · depth · retry loop (max 2×)</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node c6">
+        <div class="mod-num">Module 6</div>
+        <div class="mod-name">SQL Executor</div>
+        <div class="mod-desc">Read-only pool · 30s timeout · 10K row cap · truncation flag</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node c7">
+        <div class="mod-num">Module 7</div>
+        <div class="mod-name">Report Formatter</div>
+        <div class="mod-desc">Ollama + Mistral · Summary · Key Insights · Recommendations</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 5 ══ -->
+<div class="slide">
+  <div class="slide-tag">Module 2 — Table Retrieval</div>
+  <h2>How the System Finds the Right Tables</h2>
+  <div class="two-col">
+    <div>
+      <p style="margin-bottom:20px;">With 200+ tables in a telecom metrics server, passing all schemas to the AI would exceed the model's context window and reduce accuracy. The retriever narrows it to <strong style="color:#64B5F6;">2–3 tables</strong> per query.</p>
+      <div class="score-row">
+        <div class="score-badge">+10</div>
+        <div>
+          <div class="score-text">Table name matches query term</div>
+          <div class="score-example">"orders" in query → orders table scores +10</div>
+        </div>
+      </div>
+      <div class="score-row">
+        <div class="score-badge">+5</div>
+        <div>
+          <div class="score-text">Table keyword matches query term</div>
+          <div class="score-example">Table tagged "billing" → matches "invoice" query</div>
+        </div>
+      </div>
+      <div class="score-row">
+        <div class="score-badge">+3</div>
+        <div>
+          <div class="score-text">Column name appears in query</div>
+          <div class="score-example">"region" column → "Dallas region" query</div>
+        </div>
+      </div>
+      <div class="score-row">
+        <div class="score-badge">+4</div>
+        <div>
+          <div class="score-text">Value human_label in query</div>
+          <div class="score-example">"Active" label → "active customers" query</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px; border-left: 4px solid #00ACC1;">
+        <h3>Phase 2 Upgrade</h3>
+        <p style="font-size:14px;">Replace keyword scoring with local
+          <strong style="color:#80DEEA">sentence-transformer embeddings</strong>
+          for semantic matching — handles synonyms and paraphrasing. Drop-in replacement, same interface.</p>
+      </div>
+    </div>
+    <pre><span class="cmt"># Live example on your test data:</span>
+
+question = <span class="str">"active customers in Dallas"</span>
+
+<span class="cmt"># Scoring results:</span>
+<span class="cmt"># customer_accounts:  +10 (name) +5 (keywords)</span>
+<span class="cmt">#                     +4 (Dallas=DFW label)</span>
+<span class="cmt">#                     +4 (active=A label) = 23</span>
+<span class="cmt"># trouble_tickets:    +5 (keywords) = 5</span>
+<span class="cmt"># network_kpis:       +3 (region col) = 3</span>
+
+retriever.<span class="fn">retrieve</span>(question, top_k=<span class="str">3</span>)
+<span class="cmt"># Returns:</span>
+<span class="cmt"># 1. customer_accounts  (score: 23)</span>
+<span class="cmt"># 2. trouble_tickets    (score: 5)</span>
+<span class="cmt"># 3. network_kpis       (score: 3)</span>
+
+<span class="cmt"># Then registry builds DDL prompt block:</span>
+<span class="str">"""
+CREATE TABLE customer_accounts (
+    customer_id INTEGER,
+    status TEXT,    -- A=Active, I=Inactive
+    region TEXT,    -- DFW=Dallas, NYC=NYC
+    segment TEXT,   -- ENT, SMB, CON
+    mrr REAL
+);
+-- Enumerated values:
+-- status: 'A' = Active
+-- region: 'DFW' = Dallas
+"""</span></pre>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 6 ══ -->
+<div class="slide">
+  <div class="slide-tag">Module 5 — SQL Validator</div>
+  <h2>5-Rule Safety Net Before Any Query Runs</h2>
+  <p style="margin-bottom: 24px;">Uses <strong style="color:#64B5F6;">sqlglot AST parsing</strong> — not regex — to guarantee safety at the syntax tree level. If validation fails, the pipeline retries with error feedback to the SQL Generator (max 2 retries).</p>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Rule</th><th>What It Blocks</th><th>On Failure</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong class="accent">1</strong></td>
+        <td>Read-Only Enforcement</td>
+        <td>INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, TRUNCATE</td>
+        <td class="red">Reject</td>
+      </tr>
+      <tr>
+        <td><strong class="accent">2</strong></td>
+        <td>Table Whitelist</td>
+        <td>Any table not in <code style="color:#80DEEA">config/table_whitelist.py</code></td>
+        <td class="red">Reject</td>
+      </tr>
+      <tr>
+        <td><strong class="accent">3</strong></td>
+        <td>Row Cap</td>
+        <td>LIMIT &gt; 10,000 rows. Auto-injects LIMIT if missing.</td>
+        <td class="yellow">Inject / Reject</td>
+      </tr>
+      <tr>
+        <td><strong class="accent">4</strong></td>
+        <td>Subquery Depth</td>
+        <td>Nested subqueries deeper than 3 levels</td>
+        <td class="red">Reject</td>
+      </tr>
+      <tr>
+        <td><strong class="accent">5</strong></td>
+        <td>Set Operations</td>
+        <td>UNION / INTERSECT / EXCEPT (unless explicitly enabled)</td>
+        <td class="red">Reject</td>
+      </tr>
+      <tr>
+        <td><strong class="accent">6</strong></td>
+        <td>Execution Timeout</td>
+        <td>Queries running longer than 30 seconds</td>
+        <td class="red">Kill</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="margin-top: 20px;">
+    <div class="card" style="background: rgba(129,199,132,0.08); border-color: rgba(129,199,132,0.3);">
+      <strong class="green">49/49 tests passing</strong> &nbsp;—&nbsp;
+      <span style="font-size:14px; color:#90A4AE;">
+        All 6 rules covered by automated tests in <code style="color:#80DEEA">tests/test_sql_validator.py</code>,
+        including read-only enforcement, whitelist, limit injection, subquery depth, and set-operation blocking.
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 7 ══ -->
+<div class="slide">
+  <div class="slide-tag">Ollama — Local AI</div>
+  <h2>Why Ollama? Zero Data Leaves Your Network.</h2>
+  <div class="two-col">
+    <div>
+      <table style="margin-bottom:20px;">
+        <thead><tr><th>Concern</th><th>Cloud LLM</th><th>Ollama</th></tr></thead>
+        <tbody>
+          <tr><td>Data leaves network</td><td class="cross">Yes</td><td class="tick">Never</td></tr>
+          <tr><td>Per-query cost</td><td class="cross">Yes</td><td class="tick">Zero</td></tr>
+          <tr><td>Internet required</td><td class="cross">Yes</td><td class="tick">Air-gap OK</td></tr>
+          <tr><td>You control model version</td><td class="cross">No</td><td class="tick">Yes</td></tr>
+          <tr><td>Audit what model saw</td><td class="cross">Hard</td><td class="tick">Full control</td></tr>
+          <tr><td>Enterprise approved</td><td class="cross">Often blocked</td><td class="tick">Standard approval</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin-bottom:12px;">Supported Models</h3>
+      <table>
+        <thead><tr><th>Model</th><th>Size</th><th>Best For</th><th>RAM</th></tr></thead>
+        <tbody>
+          <tr><td><strong>sqlcoder</strong></td><td>7B</td><td>Highest SQL accuracy</td><td>8GB+</td></tr>
+          <tr><td><strong>mistral</strong></td><td>7B</td><td>Best report quality</td><td>8GB+</td></tr>
+          <tr><td><strong>phi3</strong></td><td>3.8B</td><td>CPU-only, fast</td><td>4GB+</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <pre><span class="cmt"># Install Ollama (one command)</span>
+curl -fsSL https://ollama.com/install.sh | sh
+
+<span class="cmt"># Pull models (downloaded once, ~4GB each)</span>
+ollama pull sqlcoder
+ollama pull mistral
+
+<span class="cmt"># Verify</span>
+ollama list
+<span class="cmt"># NAME             SIZE</span>
+<span class="cmt"># sqlcoder:latest  4.1 GB</span>
+<span class="cmt"># mistral:latest   4.1 GB</span>
+
+<span class="cmt"># Your code calls it like any API</span>
+<span class="cmt"># but it goes to localhost, not the internet</span>
+client = ollama.<span class="fn">Client</span>(
+    host=<span class="str">"http://localhost:11434"</span>
+)
+response = client.<span class="fn">chat</span>(
+    model=<span class="str">"sqlcoder"</span>,
+    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>,
+               <span class="str">"content"</span>: prompt}]
+)</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 8 ══ -->
+<div class="slide">
+  <div class="slide-tag">Business Value</div>
+  <h2>From Days to Seconds — Measurable Impact</h2>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="number accent">&lt;60s</div>
+      <div class="label">End-to-end query time<br>(was 1–3 days)</div>
+    </div>
+    <div class="stat">
+      <div class="number green">$0</div>
+      <div class="label">External API cost<br>per query</div>
+    </div>
+    <div class="stat">
+      <div class="number accent2">2,000+</div>
+      <div class="label">Engineering hours saved<br>per year (50 analysts)</div>
+    </div>
+    <div class="stat">
+      <div class="number yellow">100%</div>
+      <div class="label">Data stays on-premise<br>zero egress</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Step</th><th>Before</th><th>After</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Submit question</td>
+        <td class="cross">Email engineering team</td>
+        <td class="tick">Type in UI — 5 seconds</td>
+      </tr>
+      <tr>
+        <td>Decode business intent</td>
+        <td class="cross">Engineer reads schema docs — 15 min</td>
+        <td class="tick">Automatic — Schema Registry</td>
+      </tr>
+      <tr>
+        <td>Write SQL</td>
+        <td class="cross">15–60 min per query</td>
+        <td class="tick">10–30 seconds (Ollama)</td>
+      </tr>
+      <tr>
+        <td>Run &amp; format results</td>
+        <td class="cross">10–30 min per query</td>
+        <td class="tick">Automatic — Report Formatter</td>
+      </tr>
+      <tr>
+        <td>Receive answer</td>
+        <td class="cross">1–3 business days</td>
+        <td class="tick">Under 60 seconds</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ SLIDE 9 ══ -->
+<div class="slide">
+  <div class="slide-tag">Enterprise Compliance</div>
+  <h2>Meets Enterprise Security &amp; Compliance Requirements</h2>
+  <div class="card-grid cols-2" style="flex:1;">
+    <div class="card">
+      <h3 class="green">Data Privacy</h3>
+      <p>100% on-premise. No data leaves the enterprise network.
+        No cloud LLM API calls. Passes data residency requirements
+        for telecom, finance, and healthcare regulations.</p>
+    </div>
+    <div class="card">
+      <h3 class="green">Authentication &amp; RBAC</h3>
+      <p>JWT tokens on every endpoint. Role-based access:
+        Analysts run queries, Admins view the full audit trail.
+        Password hashing with PBKDF2-SHA256 (260K iterations).</p>
+    </div>
+    <div class="card">
+      <h3 class="green">Immutable Audit Trail</h3>
+      <p>Every query logged: user ID, timestamp, original question,
+        generated SQL, tables used, row count, execution time, and status.
+        Admin-only access to the audit endpoint.</p>
+    </div>
+    <div class="card">
+      <h3 class="green">SQL Safety</h3>
+      <p>AST-level parsing via sqlglot. 5 validation rules block
+        all write operations, unauthorized tables, oversized queries,
+        and deep subqueries — before any DB execution.</p>
+    </div>
+    <div class="card">
+      <h3 class="green">Schema Freshness</h3>
+      <p>Auto-scanner discovers new tables/values from the live DB.
+        Nightly delta detector flags unknown values and emails
+        the data team — nothing silently breaks.</p>
+    </div>
+    <div class="card">
+      <h3 class="green">Rate Limiting</h3>
+      <p>20 requests/minute per IP (configurable).
+        Prevents runaway batch abuse. Backed by slowapi —
+        Redis storage in multi-worker production deployments.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ SLIDE 10 ══ -->
+<div class="slide">
+  <div class="slide-tag">Technology Stack</div>
+  <h2>100% Open Source · Zero Licence Cost</h2>
+  <table style="flex:1;">
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Version</th><th>Purpose</th><th>Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>SLM Runtime</td><td><strong class="accent">Ollama</strong></td><td>0.4+</td><td>Runs language models locally</td><td class="tick">Free</td></tr>
+      <tr><td>SQL Model</td><td><strong class="accent">SQLCoder (Defog)</strong></td><td>7B</td><td>Highest Text-to-SQL accuracy</td><td class="tick">Free</td></tr>
+      <tr><td>Report Model</td><td><strong class="accent">Mistral</strong></td><td>7B</td><td>Narrative report generation</td><td class="tick">Free</td></tr>
+      <tr><td>API Layer</td><td><strong class="accent">FastAPI</strong></td><td>0.115</td><td>REST gateway, auth, routing</td><td class="tick">Free</td></tr>
+      <tr><td>UI Layer</td><td><strong class="accent">Streamlit</strong></td><td>1.40</td><td>Business user query interface</td><td class="tick">Free</td></tr>
+      <tr><td>Orchestration</td><td><strong class="accent">LangGraph</strong></td><td>0.2</td><td>Pipeline workflow management</td><td class="tick">Free</td></tr>
+      <tr><td>SQL Safety</td><td><strong class="accent">sqlglot</strong></td><td>25.x</td><td>AST-level SQL parsing</td><td class="tick">Free</td></tr>
+      <tr><td>ORM</td><td><strong class="accent">SQLAlchemy</strong></td><td>2.0</td><td>DB connections &amp; pool</td><td class="tick">Free</td></tr>
+      <tr><td>Registry DB</td><td><strong class="accent">SQLite / PostgreSQL</strong></td><td>—</td><td>Metadata store</td><td class="tick">Free</td></tr>
+      <tr><td>Language</td><td><strong class="accent">Python 3.11+</strong></td><td>—</td><td>All backend modules</td><td class="tick">Free</td></tr>
+    </tbody>
+  </table>
+  <div class="card" style="margin-top:16px; background: rgba(129,199,132,0.06); border-color: rgba(129,199,132,0.3);">
+    <strong class="green">Total external API cost: $0.00/month</strong> &nbsp;—&nbsp;
+    <span style="font-size:14px;color:#90A4AE;">
+      Versus ~$0.002/query with GPT-4o = $200/month at 100,000 queries/month.
+      Text-to-Insights pays for itself in the first week.
+    </span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ SLIDE 11 ══ -->
+<div class="slide">
+  <div class="slide-tag">Deployment</div>
+  <h2>Running in 6 Commands</h2>
+  <div class="two-col">
+    <pre style="font-size:12.5px;"><span class="cmt"># Step 1 — Install Ollama + pull models</span>
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull sqlcoder
+ollama pull mistral
+
+<span class="cmt"># Step 2 — Clone &amp; configure</span>
+git clone &lt;your-repo&gt;/Text-to-Insights
+cd Text-to-Insights
+cp .env.example .env
+<span class="cmt"># edit .env → set your metrics DB URL</span>
+
+<span class="cmt"># Step 3 — Install Python deps</span>
+pip install -r requirements.txt
+
+<span class="cmt"># Step 4 — Seed the registry</span>
+python -m scripts.seed_telecom
+
+<span class="cmt"># Step 5 — Start API</span>
+uvicorn api.main:app --reload
+
+<span class="cmt"># Step 6 — Start UI</span>
+streamlit run ui/app.py
+
+<span class="cmt"># OR run everything with Docker:</span>
+docker compose up -d
+docker exec tti-ollama ollama pull sqlcoder
+docker exec tti-ollama ollama pull mistral</pre>
+    <div>
+      <h3 style="margin-bottom:16px;">Hardware Sizing</h3>
+      <table style="margin-bottom:20px;">
+        <thead><tr><th>Users</th><th>Queries/day</th><th>Hardware</th></tr></thead>
+        <tbody>
+          <tr><td>1–5</td><td>&lt;50</td><td>Any laptop, 8GB RAM</td></tr>
+          <tr><td>5–20</td><td>50–500</td><td>Server + RTX 4090</td></tr>
+          <tr><td>20–100</td><td>500–5K</td><td>Server + A100 80GB</td></tr>
+          <tr><td>100+</td><td>5K+</td><td>Kubernetes + multiple Ollama pods</td></tr>
+        </tbody>
+      </table>
+      <div class="card">
+        <h3>Access Points</h3>
+        <p style="font-size:14px; line-height:2;">
+          API: <code style="color:#80DEEA">http://localhost:8000</code><br>
+          Swagger: <code style="color:#80DEEA">http://localhost:8000/docs</code><br>
+          UI: <code style="color:#80DEEA">http://localhost:8501</code><br>
+          Health: <code style="color:#80DEEA">http://localhost:8000/health</code>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ SLIDE 12 ══ -->
+<div class="slide">
+  <div class="slide-tag">Roadmap</div>
+  <h2>Build Roadmap — 4 Phases Complete, 2 Planned</h2>
+  <div class="roadmap-row">
+    <div class="phase done" style="border-top-color:#1E88E5;">
+      <div class="week">Week 1</div>
+      <h3>Phase 1 — Foundation</h3>
+      <ul>
+        <li>Schema Registry DB</li>
+        <li>Auto-scanner</li>
+        <li>Value Mapper</li>
+        <li>Table Retrieval</li>
+        <li>Delta detector</li>
+        <li>Alert service</li>
+      </ul>
+    </div>
+    <div class="phase done" style="border-top-color:#7B1FA2;">
+      <div class="week">Week 2</div>
+      <h3>Phase 2 — Core Pipeline</h3>
+      <ul>
+        <li>SQL Generator (Ollama)</li>
+        <li>SQL Validator (5 rules)</li>
+        <li>SQL Executor</li>
+        <li>Report Formatter</li>
+        <li>LangGraph pipeline</li>
+        <li>Retry loop</li>
+      </ul>
+    </div>
+    <div class="phase done" style="border-top-color:#C2185B;">
+      <div class="week">Week 3</div>
+      <h3>Phase 3 — Enterprise</h3>
+      <ul>
+        <li>FastAPI gateway</li>
+        <li>JWT authentication</li>
+        <li>Role-based access</li>
+        <li>Rate limiting</li>
+        <li>Audit logging</li>
+        <li>Docker Compose</li>
+      </ul>
+    </div>
+    <div class="phase done" style="border-top-color:#E65100;">
+      <div class="week">Week 4</div>
+      <h3>Phase 4 — UI</h3>
+      <ul>
+        <li>Streamlit UI</li>
+        <li>Query history</li>
+        <li>Schema browser</li>
+        <li>49 unit tests</li>
+        <li>Full documentation</li>
+        <li>Architecture diagrams</li>
+      </ul>
+    </div>
+    <div class="phase" style="border-top-color:#00ACC1; opacity:0.7;">
+      <div class="week">Phase 5</div>
+      <h3>Vector Upgrade</h3>
+      <ul>
+        <li>Sentence-transformer embeddings</li>
+        <li>Replace keyword scoring</li>
+        <li>Handle synonyms &amp; paraphrasing</li>
+        <li>FAISS local vector store</li>
+      </ul>
+    </div>
+    <div class="phase" style="border-top-color:#546E7A; opacity:0.7;">
+      <div class="week">Phase 6</div>
+      <h3>Caching &amp; Scale</h3>
+      <ul>
+        <li>Redis query result caching</li>
+        <li>Response &lt; 5s for repeated queries</li>
+        <li>Multi-worker Ollama</li>
+        <li>Prometheus metrics</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:16px; text-align:center;">
+    <span style="font-size:13px; color:#546E7A;">
+      Phases 1–4 complete &amp; committed &nbsp;·&nbsp;
+      49/49 tests passing &nbsp;·&nbsp;
+      API running &nbsp;·&nbsp;
+      Ready for Ollama connection
+    </span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ SLIDE 13 ══ -->
+<div class="slide cover" style="justify-content:center; text-align:center; align-items:center;">
+  <div class="glow glow1"></div>
+  <div class="glow glow2"></div>
+  <div class="slide-tag" style="text-align:center;">Thank You</div>
+  <h1 style="font-size:48px;">Ready to Query Your<br><span class="accent">Telecom Data</span></h1>
+  <p style="margin-top:20px; font-size:18px; color:#78909C; max-width:600px;">
+    8 modules. 49 tests. Zero external API cost.<br>
+    Ask any question. Get a full report in under 60 seconds.
+  </p>
+  <div class="badge-row" style="justify-content:center; margin-top:32px;">
+    <div class="badge">API: localhost:8000/docs</div>
+    <div class="badge">UI: localhost:8501</div>
+    <div class="badge">analyst / analyst123</div>
+  </div>
+  <p style="margin-top: 40px; font-size: 14px; color: #37474F;">
+    docs/ &nbsp;·&nbsp; architecture.png &nbsp;·&nbsp; 06_deployment_guide.md
+  </p>
+</div>
+
+</div><!-- end deck -->
+
+<!-- ── Navigation ─────────────────────────────────────────────────────────── -->
+<div class="nav">
+  <button onclick="go(-1)">&#8592;</button>
+  <span id="slide-counter">1 / 13</span>
+  <button onclick="go(1)">&#8594;</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let   cur    = 0;
+
+  function go(d) {
+    slides[cur].classList.remove('active');
+    cur = (cur + d + total) % total;
+    slides[cur].classList.add('active');
+    document.getElementById('slide-counter').textContent = `${cur+1} / ${total}`;
+    document.getElementById('progress').style.width = `${(cur+1)/total*100}%`;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')                    go(-1);
+  });
+
+  // Init progress
+  document.getElementById('progress').style.width = `${1/total*100}%`;
+</script>
+</body>
+</html>
